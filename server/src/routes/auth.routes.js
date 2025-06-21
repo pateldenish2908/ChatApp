@@ -1,48 +1,127 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
+const {
+  register,
+  login,
+  refreshToken,
+} = require('../controllers/auth.controller');
+const authMiddleware = require('../middlewares/auth.middleware');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key'; // put this in your env vars in prod
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Authentication APIs
+ */
 
-// Register (Signup)
-router.post('/register', async (req, res) => {
-  const { email, password, name, avatar } = req.body;
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ error: 'Email already in use' });
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     RegisterRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *         - name
+ *         - gender
+ *         - lookingFor
+ *         - birthday
+ *         - location
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
+ *         name:
+ *           type: string
+ *         gender:
+ *           type: string
+ *           enum: [male, female, other]
+ *         lookingFor:
+ *           type: string
+ *           enum: [male, female, both]
+ *         birthday:
+ *           type: string
+ *           format: date
+ *         location:
+ *           type: object
+ *           properties:
+ *             type:
+ *               type: string
+ *               enum: [Point]
+ *             coordinates:
+ *               type: array
+ *               items:
+ *                 type: number
+ *                 description: [longitude, latitude]
 
-    const user = new User({ email, password, name, avatar });
-    await user.save();
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
+ */
 
-    const payload = { id: user._id, email: user.email };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterRequest'
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Bad request
+ */
+router.post('/register', register);
 
-    res.status(201).json({ token, user: { id: user._id, email: user.email, name: user.name, avatar: user.avatar } });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/login', login);
 
-// Login
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: 'Invalid email or password' });
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(400).json({ error: 'Invalid email or password' });
-
-    const payload = { id: user._id, email: user.email };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
-
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name, avatar: user.avatar } });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+/**
+ * @swagger
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Token refreshed
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/refresh-token', authMiddleware, refreshToken);
 
 module.exports = router;
-// This code defines two routes for user authentication: /register and /login.

@@ -1,22 +1,24 @@
-const { verifyAccessToken } = require('../utils/token.util');
+const { verifyAccessToken } = require('../utils/jwt.util');
+const cookie = require('cookie');
 
-module.exports = (roles = []) => {
-    return (req, res, next) => {
-        try {
-            const authHeader = req.headers.authorization;
-            if (!authHeader) return res.sendStatus(401);
+function authMiddleware(req, res, next) {
+  const cookies = req.headers.cookie
+    ? cookie.parse(req.headers.cookie)
+    : {};
 
-            const token = authHeader.split(' ')[1];
-            const user = verifyAccessToken(token);
-            req.user = user;
+  const token = cookies.accessToken;
 
-            if (roles.length && !roles.includes(user.role)) {
-                return res.status(403).json({ message: 'Forbidden' });
-            }
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized - No token found' });
+  }
 
-            next();
-        } catch (err) {
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
-    }
+  try {
+    const user = verifyAccessToken(token);
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token', error: err.message });
+  }
 }
+
+module.exports = authMiddleware;

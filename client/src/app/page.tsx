@@ -1,183 +1,103 @@
-"use client";
+import Image from "next/image";
 
-import ChatHeader from "@/components/ChatHeader";
-import ChatList from "@/components/ChatList";
-import MessageInput from "@/components/MessageInput";
-import MessagesContainer from "@/components/MessagesContainer";
-import SearchBar from "@/components/SearchBar";
-import SidebarHeader from "@/components/SidebarHeader";
-import WelcomeScreen from "@/components/WelcomeScreen";
-import { Contact, Message, User } from "@/types/chat.interface";
-
-type Messages = {
-  [contactId: string]: Message[];
-};
-import { useState, useEffect } from "react";
-import { Container, Row, Col } from "react-bootstrap";
-import io, { Socket } from "socket.io-client";
-
-// Socket.IO connection
-let socket: Socket | null = null;
-// Main App Component
-export default function WhatsAppClone() {
-  const [selectedChat, setSelectedChat] = useState<Contact | null>(null);
-  const [message, setMessage] = useState<string>("");
-  const [messages, setMessages] = useState<Messages>({});
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [contacts, setContacts] = useState<Contact[]>([]);
-
-  const currentUser: User = {
-    _id: "current-user",
-    name: "You",
-    avatar:
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=40&h=40&fit=crop&crop=face",
-  };
-
-  // Initialize Socket.IO and fetch initial data
-  useEffect(() => {
-    // Connect to Socket.IO
-    socket = io("http://localhost:4000", {
-      withCredentials: true,
-      transports: ["websocket"], // optional: forces WebSocket only
-    });
-    socket.on("connect", () => {
-      console.log("Connected to Socket.IO server");
-    });
-
-    // Fetch contacts
-    fetch("http://localhost:4000/api/contacts")
-      .then((res) => res.json())
-      .then((data) => setContacts(data))
-      .catch((err) => console.error("Error fetching contacts:", err));
-
-    // Socket.IO event listeners
-    socket.on("message", (newMessage: Message) => {
-      setMessages((prev) => ({
-        ...prev,
-        [newMessage.senderId === "current-user"
-          ? selectedChat?._id || 0
-          : newMessage.senderId]: [
-          ...(prev[
-            newMessage.senderId === "current-user"
-              ? String(selectedChat?._id ?? "")
-              : String(newMessage.senderId)
-          ] || []),
-          newMessage,
-        ],
-      }));
-    });
-
-    socket.on("contactUpdate", (updatedContact: Contact) => {
-      setContacts((prev) =>
-        prev.map((contact) =>
-          contact._id === updatedContact._id ? updatedContact : contact
-        )
-      );
-    });
-
-    socket.on("messagesRead", (updatedMessages: Message[]) => {
-      if (selectedChat) {
-        setMessages((prev) => ({
-          ...prev,
-          [selectedChat._id]: updatedMessages,
-        }));
-      }
-    });
-
-    return () => {
-      socket?.disconnect();
-    };
-  }, [selectedChat]);
-
-  // Fetch messages when a chat is selected
-  useEffect(() => {
-    if (selectedChat) {
-      fetch(`http://localhost:4000/api/messages/${selectedChat._id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          setMessages((prev) => ({
-            ...prev,
-            [selectedChat._id]: data,
-          }));
-          // Join chat room and mark messages as read
-          socket?.emit("join", { contactId: selectedChat._id });
-          socket?.emit("markAsRead", { contactId: selectedChat._id });
-        })
-        .catch((err) => console.error("Error fetching messages:", err));
-    }
-  }, [selectedChat]);
-
-  const handleSendMessage = () => {
-    if (!message.trim() || !selectedChat || !socket) return;
-
-    const newMessage: Message = {
-      text: message.trim(),
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      senderId: "current-user",
-      read: true,
-    };
-
-    socket.emit("message", {
-      contactId: selectedChat._id,
-      text: newMessage.text,
-      senderId: "current-user",
-    });
-    setMessage("");
-  };
-
-  const handleChatSelect = (contact: Contact) => {
-    setSelectedChat(contact);
-  };
-
+export default function Home() {
   return (
-    <Container fluid className="p-0">
-      <Row className="g-0 chat-container">
-        <Col md={4} lg={3} className="sidebar">
-          <SidebarHeader
-            user={currentUser}
-            onMenuClick={() => console.log("Menu clicked")}
+    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={180}
+          height={38}
+          priority
+        />
+        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
+          <li className="mb-2 tracking-[-.01em]">
+            Get started by editing{" "}
+            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
+              src/app/page.tsx
+            </code>
+            .
+          </li>
+          <li className="tracking-[-.01em]">
+            Save and see your changes instantly.
+          </li>
+        </ol>
+
+        <div className="flex gap-4 items-center flex-col sm:flex-row">
+          <a
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={20}
+              height={20}
+            />
+            Deploy now
+          </a>
+          <a
+            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Read our docs
+          </a>
+        </div>
+      </main>
+      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/file.svg"
+            alt="File icon"
+            width={16}
+            height={16}
           />
-          <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-          <ChatList
-            contacts={contacts}
-            activeChat={selectedChat}
-            onChatSelect={handleChatSelect}
-            searchTerm={searchTerm}
-            messages={messages}
+          Learn
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/window.svg"
+            alt="Window icon"
+            width={16}
+            height={16}
           />
-        </Col>
-        <Col md={8} lg={9}>
-          {selectedChat ? (
-            <div className="chat-area">
-              <ChatHeader
-                contact={selectedChat}
-                onCall={(contact) => console.log("Calling", contact.name)}
-                onVideoCall={(contact) =>
-                  console.log("Video calling", contact.name)
-                }
-                onInfo={(contact) => console.log("Info for", contact.name)}
-              />
-              <MessagesContainer
-                messages={messages[selectedChat._id] || []}
-                currentUserId="current-user"
-              />
-              <MessageInput
-                message={message}
-                onMessageChange={setMessage}
-                onSendMessage={handleSendMessage}
-                onAttach={() => console.log("Attach file")}
-                onEmoji={() => console.log("Open emoji picker")}
-                onVoice={() => console.log("Record voice message")}
-              />
-            </div>
-          ) : (
-            <WelcomeScreen />
-          )}
-        </Col>
-      </Row>
-    </Container>
+          Examples
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/globe.svg"
+            alt="Globe icon"
+            width={16}
+            height={16}
+          />
+          Go to nextjs.org →
+        </a>
+      </footer>
+    </div>
   );
 }

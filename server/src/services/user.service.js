@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose');
 const User = require('../models/user.model');
 
 const registerUser = async (name, email, password, role) => {
@@ -86,26 +87,117 @@ const getUserWithPaginationSearchingAndSorting = async (query) => {
   };
 };
 
-// Seed Users for testing
-const seedUsers = async () => {
-  const dummyUsers = [
-    {
-      name: 'John Doe',
-      email: 'john@example.com',
-      password: '123456',
-      role: 'user',
-    },
-    {
-      name: 'Jane Doe',
-      email: 'jane@example.com',
-      password: '123456',
-      role: 'admin',
-    },
-  ];
+const getNearbyUsers = async (
+  userId,
+  longitude,
+  latitude,
+  maxDistance = 5000
+) => {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found', 404);
 
-  await User.insertMany(dummyUsers);
-  return 'Users seeded';
+  const nearbyUsers = await User.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: 'Point',
+          coordinates: [longitude, latitude],
+        },
+        distanceField: 'distance', // This field will hold distance for each doc
+        spherical: true,
+        maxDistance: maxDistance, // in meters
+        query: { _id: { $ne: new mongoose.Types.ObjectId(userId) } },
+      },
+    },
+    {
+      $project: {
+        password: 0, // Exclude password
+      },
+    },
+    {
+      $limit: 50,
+    },
+  ]);
+
+  // const nearbyUsers = await User.find({
+  //   _id: { $ne: userId }, // Exclude self
+  //   location: {
+  //     $near: {
+  //       $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+  //       $maxDistance: maxDistance, // in meters
+  //     },
+  //   },
+  // }).select('-password').limit(50); // Limit to 10 nearby users
+
+  if (!nearbyUsers.length) {
+    throw new Error('No nearby users found', 404);
+  }
+
+  return nearbyUsers;
 };
+
+const updateLocation = async (req, res, next) => {
+  try {
+    const { longitude, latitude } = req.body;
+    const userId = req.params.userId;
+
+    await User.findByIdAndUpdate(userId, {
+      location: {
+        type: 'Point',
+        coordinates: [longitude, latitude],
+      },
+    });
+
+    res.json({ message: 'Location updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const CENTRAL_COORDINATES = [72.8777, 19.076]; // Mumbai [lng, lat]
+
+function generateRandomNearbyCoordinates(base, radiusInKm = 2) {
+  const [lng, lat] = base;
+
+  const r = radiusInKm / 111; // 1 degree ~ 111km
+  const randomLat = lat + (Math.random() - 0.5) * 2 * r;
+  const randomLng = lng + (Math.random() - 0.5) * 2 * r;
+
+  return [parseFloat(randomLng.toFixed(6)), parseFloat(randomLat.toFixed(6))];
+}
+
+async function seedUsers() {
+  await User.deleteMany({}); // Optional: clear users
+
+  const users = [];
+
+  for (let i = 1; i <= 20; i++) {
+    const coords = generateRandomNearbyCoordinates(CENTRAL_COORDINATES);
+
+    users.push({
+      name: `User${i}`,
+      email: `user${i}@example.com`,
+      password: 'password123', // hash if needed
+      gender: i % 2 === 0 ? 'male' : 'female',
+      lookingFor: 'both',
+      birthday: new Date(1995, 0, i), // Jan 1 to 20, 1995
+      location: {
+        type: 'Point',
+        coordinates: coords,
+      },
+      isActive: true,
+      isVerified: true,
+    });
+  }
+  try {
+    await User.insertMany(users);
+    console.log('Users seeded successfully');
+    return 'Users seeded successfully';
+  } catch (error) {
+    console.error('Error seeding users:', error);
+    throw error;
+  }
+}
 
 module.exports = {
   registerUser,
@@ -116,5 +208,7 @@ module.exports = {
   getUserById,
   getAllUsers,
   getUserWithPaginationSearchingAndSorting,
+  updateLocation,
+  getNearbyUsers,
   seedUsers,
 };

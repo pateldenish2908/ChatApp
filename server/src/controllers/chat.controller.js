@@ -4,6 +4,7 @@ const Message = require('../models/Message');
 
 
 // Seed dummy contacts (run only once or on demand)
+// eslint-disable-next-line no-unused-vars
 async function seedContacts() {
   const count = await Contact.countDocuments();
   if (count > 0) return;
